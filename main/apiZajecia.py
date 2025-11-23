@@ -1,67 +1,45 @@
-from fastapi import FastAPI, HTTPException
-from dataclasses import dataclass
+from fastapi import FastAPI, HTTPException, Depends
 from typing import List, Dict, Optional
-import csv
-from pathlib import Path
-import os
+from sqlalchemy.orm import Session
 
-app = FastAPI()
+from database import get_db
+from models import Movie as MovieModel, Link as LinkModel, Rating as RatingModel, Tag as TagModel
 
-
-def get_resources_dir() -> Path:
-    """
-    Proste rozwiązywanie katalogu resources:
-    1) jeśli ustawiona zmienna środowiskowa RESOURCES_DIR -> użyj jej
-    2) w przeciwnym razie ./resources obok apiZajecia.py
-    3) fallback: Windows path podany wcześniej
-    """
-    env = os.environ.get("RESOURCES_DIR")
-    if env:
-        p = Path(env)
-        if p.is_dir():
-            return p
-        # jeśli wskazano plik, weź jego katalog
-        return p.parent
-
-    rel = Path(__file__).parent / "resources"
-    if rel.exists():
-        return rel
-
-    return Path(r"C:\Users\Student\PycharmProjects\DobrePraktykiProgramowania\resources")
+app = FastAPI(title="Movies API (SQLite + SQLAlchemy)")
 
 
-def csv_path(filename: str) -> Path:
-    return get_resources_dir() / filename
+def movie_to_dict(m: MovieModel) -> Dict:
+    return {
+        "movieId": m.movieId,
+        "title": m.title,
+        "genres": m.genres.split("|") if m.genres else []
+    }
 
 
-@dataclass
-class Movie:
-    movieId: int
-    title: str
-    genres: List[str]
+def link_to_dict(l: LinkModel) -> Dict:
+    return {
+        "movieId": l.movieId,
+        "imdbId": l.imdbId,
+        "tmdbId": l.tmdbId
+    }
 
 
-@dataclass
-class Link:
-    movieId: int
-    imdbId: str
-    tmdbId: Optional[int]
+def rating_to_dict(r: RatingModel) -> Dict:
+    return {
+        "userId": r.userId,
+        "movieId": r.movieId,
+        "rating": r.rating,
+        "timestamp": r.timestamp
+    }
 
 
-@dataclass
-class Rating:
-    userId: int
-    movieId: int
-    rating: float
-    timestamp: Optional[int]
-
-
-@dataclass
-class Tag:
-    userId: int
-    movieId: int
-    tag: str
-    timestamp: Optional[int]
+def tag_to_dict(t: TagModel) -> Dict:
+    return {
+        "userId": t.userId,
+        "movieId": t.movieId,
+        "tag": t.tag,
+        "timestamp": t.timestamp
+    }
 
 
 @app.get("/", include_in_schema=False)
@@ -70,99 +48,27 @@ async def root():
 
 
 @app.get("/movies")
-async def movies() -> List[Dict]:
-    path = csv_path("movies.csv")
-    if not path.exists():
-        raise HTTPException(status_code=500, detail=f"movies.csv not found at {path}")
-
-    out: List[Dict] = []
-    with path.open(newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                movie_id = int((row.get("movieId") or "").strip())
-            except Exception:
-                continue
-            title = (row.get("title") or "").strip()
-            genres_field = (row.get("genres") or "").strip()
-            genres = [g for g in genres_field.split("|") if g] if genres_field else []
-            movie = Movie(movieId=movie_id, title=title, genres=genres)
-            out.append(movie.__dict__)
-    return out
+def movies(db: Session = Depends(get_db)) -> List[Dict]:
+    """
+    Return all movies from the SQLite DB (uses SQLAlchemy models).
+    """
+    movies = db.query(MovieModel).all()
+    return [movie_to_dict(m) for m in movies]
 
 
 @app.get("/links")
-async def links() -> List[Dict]:
-    path = csv_path("links.csv")
-    if not path.exists():
-        raise HTTPException(status_code=500, detail=f"links.csv not found at {path}")
-
-    out: List[Dict] = []
-    with path.open(newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                movie_id = int((row.get("movieId") or "").strip())
-            except Exception:
-                continue
-            imdb_id = (row.get("imdbId") or "").strip()
-            tmdb_raw = (row.get("tmdbId") or "").strip()
-            try:
-                tmdb_id = int(tmdb_raw) if tmdb_raw != "" else None
-            except Exception:
-                tmdb_id = None
-            link = Link(movieId=movie_id, imdbId=imdb_id, tmdbId=tmdb_id)
-            out.append(link.__dict__)
-    return out
+def links(db: Session = Depends(get_db)) -> List[Dict]:
+    links = db.query(LinkModel).all()
+    return [link_to_dict(l) for l in links]
 
 
 @app.get("/ratings")
-async def ratings() -> List[Dict]:
-    path = csv_path("ratings.csv")
-    if not path.exists():
-        raise HTTPException(status_code=500, detail=f"ratings.csv not found at {path}")
-
-    out: List[Dict] = []
-    with path.open(newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                user_id = int((row.get("userId") or "").strip())
-                movie_id = int((row.get("movieId") or "").strip())
-                rating_val = float((row.get("rating") or "").strip())
-            except Exception:
-                continue
-            ts_raw = (row.get("timestamp") or "").strip()
-            try:
-                ts = int(ts_raw) if ts_raw != "" else None
-            except Exception:
-                ts = None
-            rating = Rating(userId=user_id, movieId=movie_id, rating=rating_val, timestamp=ts)
-            out.append(rating.__dict__)
-    return out
+def ratings(db: Session = Depends(get_db)) -> List[Dict]:
+    ratings = db.query(RatingModel).all()
+    return [rating_to_dict(r) for r in ratings]
 
 
 @app.get("/tags")
-async def tags() -> List[Dict]:
-    path = csv_path("tags.csv")
-    if not path.exists():
-        raise HTTPException(status_code=500, detail=f"tags.csv not found at {path}")
-
-    out: List[Dict] = []
-    with path.open(newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                user_id = int((row.get("userId") or "").strip())
-                movie_id = int((row.get("movieId") or "").strip())
-            except Exception:
-                continue
-            tag_text = (row.get("tag") or "").strip()
-            ts_raw = (row.get("timestamp") or "").strip()
-            try:
-                ts = int(ts_raw) if ts_raw != "" else None
-            except Exception:
-                ts = None
-            tag = Tag(userId=user_id, movieId=movie_id, tag=tag_text, timestamp=ts)
-            out.append(tag.__dict__)
-    return out
+def tags(db: Session = Depends(get_db)) -> List[Dict]:
+    tags = db.query(TagModel).all()
+    return [tag_to_dict(t) for t in tags]
