@@ -9,9 +9,9 @@ from httpx import Client
 # 1. TESTY ZASOBU: MOVIES
 # ####################################################################
 
-def test_get_all_movies(client: Client, db_session, init_data: Dict):
+def test_get_all_movies(client: Client, db_session, init_data: Dict, admin_token):
     """a. Weryfikacja czy endpoint GET (lista) zwraca poprawną liczbę i dane."""
-    response = client.get("/movies")
+    response = client.get("/movies", headers=admin_token)
 
     # Asercja 1: Poprawny status code
     assert response.status_code == 200
@@ -25,10 +25,10 @@ def test_get_all_movies(client: Client, db_session, init_data: Dict):
     assert "genres" in data[1]
 
 
-def test_get_movie_by_id_success(client: Client, init_data: Dict):
+def test_get_movie_by_id_success(client: Client, init_data: Dict, admin_token):
     """b. Weryfikacja czy endpoint GET (item) zwraca element o istniejącym ID."""
     movie_id = init_data["movie_id"]
-    response = client.get(f"/movies/{movie_id}")
+    response = client.get(f"/movies/{movie_id}", headers=admin_token)
 
     # Asercja 1: Poprawny status code
     assert response.status_code == 200
@@ -40,9 +40,9 @@ def test_get_movie_by_id_success(client: Client, init_data: Dict):
     assert data["title"] == "Test Movie 1"
 
 
-def test_get_movie_by_id_not_found(client: Client):
+def test_get_movie_by_id_not_found(client: Client, admin_token):
     """c. Weryfikacja statusu 404 dla nieistniejącego ID."""
-    response = client.get("/movies/999999")
+    response = client.get("/movies/999999", headers=admin_token)
 
     # Asercja 1: Status code powinien być 404
     assert response.status_code == 404
@@ -50,7 +50,7 @@ def test_get_movie_by_id_not_found(client: Client):
     assert response.json()["detail"] == "Movie not found"
 
 
-def test_post_and_verify_movie(client: Client, db_session):
+def test_post_and_verify_movie(client: Client, db_session, admin_token):
     """d. Weryfikacja czy endpoint POST dodaje nowy element do bazy."""
     new_movie_data = {
         "movieId": 100,
@@ -58,7 +58,7 @@ def test_post_and_verify_movie(client: Client, db_session):
         "genres": "Sci-Fi"
     }
 
-    response = client.post("/movies", json=new_movie_data)
+    response = client.post("/movies", json=new_movie_data, headers=admin_token)
 
     # Asercja 1: Status code 201 Created
     assert response.status_code == 201
@@ -72,7 +72,7 @@ def test_post_and_verify_movie(client: Client, db_session):
     assert db_movie.title == "New Test Film"
 
 
-def test_put_and_verify_movie(client: Client, db_session, init_data: Dict):
+def test_put_and_verify_movie(client: Client, db_session, init_data: Dict, admin_token):
     """e. Weryfikacja czy endpoint PUT aktualizuje element w bazie."""
     movie_id = init_data["movie_id"]
     update_data = {
@@ -81,7 +81,7 @@ def test_put_and_verify_movie(client: Client, db_session, init_data: Dict):
         "genres": "Action"
     }
 
-    response = client.put(f"/movies/{movie_id}", json=update_data)
+    response = client.put(f"/movies/{movie_id}", json=update_data, headers=admin_token)
 
     # Asercja 1: Poprawny status code
     assert response.status_code == 200
@@ -93,11 +93,11 @@ def test_put_and_verify_movie(client: Client, db_session, init_data: Dict):
     assert db_movie.genres == "Action"
 
 
-def test_delete_movie(client: Client, db_session, init_data: Dict):
+def test_delete_movie(client: Client, db_session, init_data: Dict, admin_token):
     """Weryfikacja czy endpoint DELETE usuwa element z bazy."""
     movie_id_to_delete = init_data["movie_id"]
 
-    response = client.delete(f"/movies/{movie_id_to_delete}")
+    response = client.delete(f"/movies/{movie_id_to_delete}", headers=admin_token)
 
     # Asercja 1: Poprawny status code 204 No Content
     assert response.status_code == 204
@@ -117,14 +117,14 @@ def test_delete_movie(client: Client, db_session, init_data: Dict):
 # 2. TESTY ZASOBU: LINKS
 # ####################################################################
 
-def test_post_link(client: Client, db_session, init_data: Dict):
+def test_post_link(client: Client, db_session, init_data: Dict, admin_token):
     """Test POST: Tworzenie nowego Link i weryfikacja istnienia."""
     new_link_data = {
         "movieId": init_data["movie_id"],
         "imdbId": "tt9999",
         "tmdbId": 9999
     }
-    response = client.post("/links", json=new_link_data)
+    response = client.post("/links", json=new_link_data, headers=admin_token)
 
     assert response.status_code == 201
     data = response.json()
@@ -137,10 +137,10 @@ def test_post_link(client: Client, db_session, init_data: Dict):
     assert db_link.tmdbId == 9999
 
 
-def test_get_link_by_id_success(client: Client, init_data: Dict):
+def test_get_link_by_id_success(client: Client, init_data: Dict, admin_token):
     """Test GET (item): Pobranie istniejącego Link po ID."""
     link_id = init_data["link_id"]
-    response = client.get(f"/links/{link_id}")
+    response = client.get(f"/links/{link_id}", headers=admin_token)
 
     assert response.status_code == 200
     data = response.json()
@@ -148,14 +148,14 @@ def test_get_link_by_id_success(client: Client, init_data: Dict):
     assert data["imdbId"] == "tt123"
 
 
-def test_get_link_by_id_not_found(client: Client):
+def test_get_link_by_id_not_found(client: Client, admin_token):
     """Test GET (item): Status 404 dla nieistniejącego Link ID."""
-    response = client.get("/links/999999")
+    response = client.get("/links/999999", headers=admin_token)
     assert response.status_code == 404
     assert response.json()["detail"] == "Link not found"
 
 
-def test_put_link(client: Client, db_session, init_data: Dict):
+def test_put_link(client: Client, db_session, init_data: Dict, admin_token):
     """Test PUT: Aktualizacja istniejącego Link i weryfikacja zmiany."""
     link_id = init_data["link_id"]
     update_data = {
@@ -164,7 +164,7 @@ def test_put_link(client: Client, db_session, init_data: Dict):
         "tmdbId": 10000
     }
 
-    response = client.put(f"/links/{link_id}", json=update_data)
+    response = client.put(f"/links/{link_id}", json=update_data, headers=admin_token)
 
     assert response.status_code == 200
     data = response.json()
@@ -176,11 +176,11 @@ def test_put_link(client: Client, db_session, init_data: Dict):
     assert db_link.imdbId == "ttCHANGED"
 
 
-def test_delete_link(client: Client, db_session, init_data: Dict):
+def test_delete_link(client: Client, db_session, init_data: Dict, admin_token):
     """Test DELETE: Usunięcie istniejącego Link."""
     link_id_to_delete = init_data["link_id"]
 
-    response = client.delete(f"/links/{link_id_to_delete}")
+    response = client.delete(f"/links/{link_id_to_delete}", headers=admin_token)
 
     assert response.status_code == 204  # No Content
 
@@ -194,7 +194,7 @@ def test_delete_link(client: Client, db_session, init_data: Dict):
 # 3. TESTY ZASOBU: RATINGS
 # ####################################################################
 
-def test_post_rating(client: Client, db_session, init_data: Dict):
+def test_post_rating(client: Client, db_session, init_data: Dict, admin_token):
     """Test POST: Tworzenie nowego Rating."""
     new_rating_data = {
         "userId": 50,
@@ -202,7 +202,7 @@ def test_post_rating(client: Client, db_session, init_data: Dict):
         "rating": 3.0,
         "timestamp": 2000
     }
-    response = client.post("/ratings", json=new_rating_data)
+    response = client.post("/ratings", json=new_rating_data, headers=admin_token)
     assert response.status_code == 201
     assert response.json()["rating"] == 3.0
 
@@ -211,15 +211,15 @@ def test_post_rating(client: Client, db_session, init_data: Dict):
     assert db_rating.rating == 3.0
 
 
-def test_get_rating_by_id_success(client: Client, init_data: Dict):
+def test_get_rating_by_id_success(client: Client, init_data: Dict, admin_token):
     """Test GET (item): Pobranie istniejącego Rating po ID."""
     rating_id = init_data["rating_id"]
-    response = client.get(f"/ratings/{rating_id}")
+    response = client.get(f"/ratings/{rating_id}", headers=admin_token)
     assert response.status_code == 200
     assert response.json()["rating"] == 4.5
 
 
-def test_put_rating(client: Client, db_session, init_data: Dict):
+def test_put_rating(client: Client, db_session, init_data: Dict, admin_token):
     """Test PUT: Aktualizacja istniejącego Rating."""
     rating_id = init_data["rating_id"]
     update_data = {
@@ -228,7 +228,7 @@ def test_put_rating(client: Client, db_session, init_data: Dict):
         "rating": 5.0,  # Zmieniamy z 4.5 na 5.0
         "timestamp": 1000
     }
-    response = client.put(f"/ratings/{rating_id}", json=update_data)
+    response = client.put(f"/ratings/{rating_id}", json=update_data, headers=admin_token)
     assert response.status_code == 200
     assert response.json()["rating"] == 5.0
 
@@ -237,10 +237,10 @@ def test_put_rating(client: Client, db_session, init_data: Dict):
     assert db_rating.rating == 5.0
 
 
-def test_delete_rating(client: Client, db_session, init_data: Dict):
+def test_delete_rating(client: Client, db_session, init_data: Dict, admin_token):
     """Test DELETE: Usunięcie istniejącego Rating."""
     rating_id_to_delete = init_data["rating_id"]
-    response = client.delete(f"/ratings/{rating_id_to_delete}")
+    response = client.delete(f"/ratings/{rating_id_to_delete}", headers=admin_token)
     assert response.status_code == 204
 
     from main.models import Rating as RatingModel
@@ -252,7 +252,7 @@ def test_delete_rating(client: Client, db_session, init_data: Dict):
 # 4. TESTY ZASOBU: TAGS
 # ####################################################################
 
-def test_post_tag(client: Client, db_session, init_data: Dict):
+def test_post_tag(client: Client, db_session, init_data: Dict, admin_token):
     """Test POST: Tworzenie nowego Tag."""
     new_tag_data = {
         "userId": 60,
@@ -260,7 +260,7 @@ def test_post_tag(client: Client, db_session, init_data: Dict):
         "tag": "amazing",
         "timestamp": 3000
     }
-    response = client.post("/tags", json=new_tag_data)
+    response = client.post("/tags", json=new_tag_data, headers=admin_token)
     assert response.status_code == 201
     assert response.json()["tag"] == "amazing"
 
@@ -269,15 +269,15 @@ def test_post_tag(client: Client, db_session, init_data: Dict):
     assert db_tag.tag == "amazing"
 
 
-def test_get_tag_by_id_success(client: Client, init_data: Dict):
+def test_get_tag_by_id_success(client: Client, init_data: Dict, admin_token):
     """Test GET (item): Pobranie istniejącego Tag po ID."""
     tag_id = init_data["tag_id"]
-    response = client.get(f"/tags/{tag_id}")
+    response = client.get(f"/tags/{tag_id}", headers=admin_token)
     assert response.status_code == 200
     assert response.json()["tag"] == "sad"
 
 
-def test_put_tag(client: Client, db_session, init_data: Dict):
+def test_put_tag(client: Client, db_session, init_data: Dict, admin_token):
     """Test PUT: Aktualizacja istniejącego Tag."""
     tag_id = init_data["tag_id"]
     update_data = {
@@ -286,7 +286,7 @@ def test_put_tag(client: Client, db_session, init_data: Dict):
         "tag": "happy",  # Zmieniamy z "sad" na "happy"
         "timestamp": 1000
     }
-    response = client.put(f"/tags/{tag_id}", json=update_data)
+    response = client.put(f"/tags/{tag_id}", json=update_data, headers=admin_token)
     assert response.status_code == 200
     assert response.json()["tag"] == "happy"
 
@@ -295,10 +295,10 @@ def test_put_tag(client: Client, db_session, init_data: Dict):
     assert db_tag.tag == "happy"
 
 
-def test_delete_tag(client: Client, db_session, init_data: Dict):
+def test_delete_tag(client: Client, db_session, init_data: Dict, admin_token):
     """Test DELETE: Usunięcie istniejącego Tag."""
     tag_id_to_delete = init_data["tag_id"]
-    response = client.delete(f"/tags/{tag_id_to_delete}")
+    response = client.delete(f"/tags/{tag_id_to_delete}", headers=admin_token)
     assert response.status_code == 204
 
     from main.models import Tag as TagModel

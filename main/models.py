@@ -64,3 +64,18 @@ class Tag(Base):
 
     def __repr__(self):
         return f"<Tag(userId={self.userId}, movieId={self.movieId}, tag={self.tag})>"
+
+
+# Nowa klasa User
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, unique=True, nullable=False, index=True)
+    # hasło musi być przechowywane jako hash (nie jako jawny tekst!)
+    hashed_password = Column(String, nullable=False)
+    # Pole na role (lista ról zapisana jako tekst, np. 'ROLE_USER|ROLE_ADMIN')
+    roles = Column(String, nullable=False, default='ROLE_USER')
+
+    def __repr__(self):
+        return f"<User(username={self.username})>"

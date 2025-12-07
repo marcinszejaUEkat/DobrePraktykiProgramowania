@@ -93,3 +93,32 @@ class Tag(TagBase):
 # Wymiana schematu dla odpowiedzi na listę wszystkich filmów
 class MovieList(BaseModel):
     movies: List[Movie]
+
+
+class UserBase(BaseModel):
+    username: str
+    roles: List[str] = ['ROLE_USER']  # Domyślna rola
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class User(UserBase):
+    id: int
+
+    model_config = {
+        'from_attributes': True
+    }
+
+
+# Schemat dla danych wejściowych do /login
+class LoginData(BaseModel):
+    username: str
+    password: str
+
+
+# Schemat dla odpowiedzi z /login
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

@@ -3,8 +3,10 @@ from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 
 from main.database import get_db
-from main.models import Movie as MovieModel, Link as LinkModel, Rating as RatingModel, Tag as TagModel
+from main.models import Movie as MovieModel, Link as LinkModel, Rating as RatingModel, Tag as TagModel, User as UserModel
 from main import schemas
+import bcrypt
+from main.auth import hash_password, verify_password, create_access_token, get_current_user_from_token, role_required
 
 app = FastAPI(title="Movies API (SQLite + SQLAlchemy)")
 
@@ -50,20 +52,11 @@ async def root():
 # --- ZAAWANSOWANE ENDPOINTY: READ (LIST) ---
 # Używamy teraz modelu Pydantic w adnotacji typu zwracanego
 @app.get("/movies", response_model=List[schemas.Movie])
-def get_all_movies(db: Session = Depends(get_db)):
+def get_all_movies(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     """
     Zwraca listę wszystkich filmów.
     """
     return db.query(MovieModel).all()
-
-
-# @app.get("/movies")
-# def movies(db: Session = Depends(get_db)) -> List[Dict]:
-#     """
-#     Return all movies from the SQLite DB (uses SQLAlchemy models).
-#     """
-#     movies = db.query(MovieModel).all()
-#     return [movie_to_dict(m) for m in movies]
 
 
 # ####################################################################
@@ -72,7 +65,7 @@ def get_all_movies(db: Session = Depends(get_db)):
 
 # a. POST - TWORZENIE
 @app.post("/movies", response_model=schemas.Movie, status_code=201)
-def create_movie(movie_data: schemas.MovieCreate, db: Session = Depends(get_db)):
+def create_movie(movie_data: schemas.MovieCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     # Sprawdzenie, czy movieId już istnieje
     existing_movie = db.query(MovieModel).filter(MovieModel.movieId == movie_data.movieId).first()
     if existing_movie:
@@ -88,7 +81,7 @@ def create_movie(movie_data: schemas.MovieCreate, db: Session = Depends(get_db))
 
 # b. READ (ITEM) - POBIERANIE PO ID
 @app.get("/movies/{movie_id}", response_model=schemas.Movie)
-def get_movie_by_id(movie_id: int, db: Session = Depends(get_db)):
+def get_movie_by_id(movie_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     movie = db.query(MovieModel).filter(MovieModel.movieId == movie_id).first()
     if movie is None:
         raise HTTPException(status_code=404, detail="Movie not found")
@@ -97,7 +90,7 @@ def get_movie_by_id(movie_id: int, db: Session = Depends(get_db)):
 
 # c. PUT - AKTUALIZACJA
 @app.put("/movies/{movie_id}", response_model=schemas.Movie)
-def update_movie(movie_id: int, movie_data: schemas.MovieCreate, db: Session = Depends(get_db)):
+def update_movie(movie_id: int, movie_data: schemas.MovieCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     db_movie = db.query(MovieModel).filter(MovieModel.movieId == movie_id).first()
     if db_movie is None:
         raise HTTPException(status_code=404, detail="Movie not found")
@@ -113,7 +106,7 @@ def update_movie(movie_id: int, movie_data: schemas.MovieCreate, db: Session = D
 
 # d. DELETE - USUWANIE
 @app.delete("/movies/{movie_id}", status_code=204)
-def delete_movie(movie_id: int, db: Session = Depends(get_db)):
+def delete_movie(movie_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     db_movie = db.query(MovieModel).filter(MovieModel.movieId == movie_id).first()
     if db_movie is None:
         raise HTTPException(status_code=404, detail="Movie not found")
@@ -123,7 +116,7 @@ def delete_movie(movie_id: int, db: Session = Depends(get_db)):
     return
 
 @app.get("/links")
-def links(db: Session = Depends(get_db)) -> List[Dict]:
+def links(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)) -> List[Dict]:
     links = db.query(LinkModel).all()
     return [link_to_dict(l) for l in links]
 
@@ -134,7 +127,7 @@ def links(db: Session = Depends(get_db)) -> List[Dict]:
 
 # a. POST - TWORZENIE
 @app.post("/links", response_model=schemas.Link, status_code=201)
-def create_link(link_data: schemas.LinkCreate, db: Session = Depends(get_db)):
+def create_link(link_data: schemas.LinkCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     # Sprawdzenie, czy film istnieje (integralność klucza obcego)
     if not db.query(MovieModel).filter(MovieModel.movieId == link_data.movieId).first():
         raise HTTPException(status_code=400, detail="Invalid movieId: Movie does not exist.")
@@ -148,7 +141,7 @@ def create_link(link_data: schemas.LinkCreate, db: Session = Depends(get_db)):
 
 # b. READ (ITEM) - POBIERANIE PO ID
 @app.get("/links/{link_id}", response_model=schemas.Link)
-def get_link_by_id(link_id: int, db: Session = Depends(get_db)):
+def get_link_by_id(link_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     link = db.query(LinkModel).filter(LinkModel.id == link_id).first()
     if link is None:
         raise HTTPException(status_code=404, detail="Link not found")
@@ -157,7 +150,7 @@ def get_link_by_id(link_id: int, db: Session = Depends(get_db)):
 
 # c. PUT - AKTUALIZACJA
 @app.put("/links/{link_id}", response_model=schemas.Link)
-def update_link(link_id: int, link_data: schemas.LinkCreate, db: Session = Depends(get_db)):
+def update_link(link_id: int, link_data: schemas.LinkCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     db_link = db.query(LinkModel).filter(LinkModel.id == link_id).first()
     if db_link is None:
         raise HTTPException(status_code=404, detail="Link not found")
@@ -177,7 +170,7 @@ def update_link(link_id: int, link_data: schemas.LinkCreate, db: Session = Depen
 
 # d. DELETE - USUWANIE
 @app.delete("/links/{link_id}", status_code=204)
-def delete_link(link_id: int, db: Session = Depends(get_db)):
+def delete_link(link_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     db_link = db.query(LinkModel).filter(LinkModel.id == link_id).first()
     if db_link is None:
         raise HTTPException(status_code=404, detail="Link not found")
@@ -193,7 +186,7 @@ def delete_link(link_id: int, db: Session = Depends(get_db)):
 
 # a. POST - TWORZENIE
 @app.post("/ratings", response_model=schemas.Rating, status_code=201)
-def create_rating(rating_data: schemas.RatingCreate, db: Session = Depends(get_db)):
+def create_rating(rating_data: schemas.RatingCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     if not db.query(MovieModel).filter(MovieModel.movieId == rating_data.movieId).first():
         raise HTTPException(status_code=400, detail="Invalid movieId: Movie does not exist.")
 
@@ -209,7 +202,7 @@ def create_rating(rating_data: schemas.RatingCreate, db: Session = Depends(get_d
 
 # b. READ (ITEM) - POBIERANIE PO ID
 @app.get("/ratings/{rating_id}", response_model=schemas.Rating)
-def get_rating_by_id(rating_id: int, db: Session = Depends(get_db)):
+def get_rating_by_id(rating_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     rating = db.query(RatingModel).filter(RatingModel.id == rating_id).first()
     if rating is None:
         raise HTTPException(status_code=404, detail="Rating not found")
@@ -218,7 +211,7 @@ def get_rating_by_id(rating_id: int, db: Session = Depends(get_db)):
 
 # c. PUT - AKTUALIZACJA
 @app.put("/ratings/{rating_id}", response_model=schemas.Rating)
-def update_rating(rating_id: int, rating_data: schemas.RatingCreate, db: Session = Depends(get_db)):
+def update_rating(rating_id: int, rating_data: schemas.RatingCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     db_rating = db.query(RatingModel).filter(RatingModel.id == rating_id).first()
     if db_rating is None:
         raise HTTPException(status_code=404, detail="Rating not found")
@@ -237,7 +230,7 @@ def update_rating(rating_id: int, rating_data: schemas.RatingCreate, db: Session
 
 # d. DELETE - USUWANIE
 @app.delete("/ratings/{rating_id}", status_code=204)
-def delete_rating(rating_id: int, db: Session = Depends(get_db)):
+def delete_rating(rating_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     db_rating = db.query(RatingModel).filter(RatingModel.id == rating_id).first()
     if db_rating is None:
         raise HTTPException(status_code=404, detail="Rating not found")
@@ -247,7 +240,7 @@ def delete_rating(rating_id: int, db: Session = Depends(get_db)):
     return
 
 @app.get("/ratings")
-def ratings(db: Session = Depends(get_db)) -> List[Dict]:
+def ratings(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)) -> List[Dict]:
     ratings = db.query(RatingModel).all()
     return [rating_to_dict(r) for r in ratings]
 
@@ -258,7 +251,7 @@ def ratings(db: Session = Depends(get_db)) -> List[Dict]:
 
 # a. POST - TWORZENIE
 @app.post("/tags", response_model=schemas.Tag, status_code=201)
-def create_tag(tag_data: schemas.TagCreate, db: Session = Depends(get_db)):
+def create_tag(tag_data: schemas.TagCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     if not db.query(MovieModel).filter(MovieModel.movieId == tag_data.movieId).first():
         raise HTTPException(status_code=400, detail="Invalid movieId: Movie does not exist.")
 
@@ -271,7 +264,7 @@ def create_tag(tag_data: schemas.TagCreate, db: Session = Depends(get_db)):
 
 # b. READ (ITEM) - POBIERANIE PO ID
 @app.get("/tags/{tag_id}", response_model=schemas.Tag)
-def get_tag_by_id(tag_id: int, db: Session = Depends(get_db)):
+def get_tag_by_id(tag_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     tag = db.query(TagModel).filter(TagModel.id == tag_id).first()
     if tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
@@ -280,7 +273,7 @@ def get_tag_by_id(tag_id: int, db: Session = Depends(get_db)):
 
 # c. PUT - AKTUALIZACJA
 @app.put("/tags/{tag_id}", response_model=schemas.Tag)
-def update_tag(tag_id: int, tag_data: schemas.TagCreate, db: Session = Depends(get_db)):
+def update_tag(tag_id: int, tag_data: schemas.TagCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     db_tag = db.query(TagModel).filter(TagModel.id == tag_id).first()
     if db_tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
@@ -299,7 +292,7 @@ def update_tag(tag_id: int, tag_data: schemas.TagCreate, db: Session = Depends(g
 
 # d. DELETE - USUWANIE
 @app.delete("/tags/{tag_id}", status_code=204)
-def delete_tag(tag_id: int, db: Session = Depends(get_db)):
+def delete_tag(tag_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     db_tag = db.query(TagModel).filter(TagModel.id == tag_id).first()
     if db_tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
@@ -309,6 +302,90 @@ def delete_tag(tag_id: int, db: Session = Depends(get_db)):
     return
 
 @app.get("/tags")
-def tags(db: Session = Depends(get_db)) -> List[Dict]:
+def tags(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)) -> List[Dict]:
     tags = db.query(TagModel).all()
     return [tag_to_dict(t) for t in tags]
+
+
+# ####################################################################
+# 5. ZASÓB: USERS (REJESTRACJA I ZARZĄDZANIE)
+# ####################################################################
+
+# Zabezpieczenie dla admina (wymagane w punkcie 6)
+@app.post("/users", response_model=schemas.User, status_code=201,
+          dependencies=[Depends(role_required(["ROLE_ADMIN"]))])
+def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
+    """
+    Dodaje nowego użytkownika do bazy danych (wymaga ROLE_ADMIN).
+    """
+    # 1. Sprawdzenie, czy użytkownik już istnieje
+    existing_user = db.query(UserModel).filter(UserModel.username == user_data.username).first()
+    if existing_user:
+        raise HTTPException(status_code=409, detail="User already exists")
+
+    # 2. Haszowanie hasła
+    hashed_pw = hash_password(user_data.password)
+
+    # 3. Zapis ról
+    # Łączymy listę ról w jeden string, aby zapisać w kolumnie String w DB
+    roles_str = "|".join(user_data.roles)
+
+    # 4. Tworzenie obiektu UserModel
+    db_user = UserModel(
+        username=user_data.username,
+        hashed_password=hashed_pw,
+        roles=roles_str
+    )
+
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+
+    # 5. Konwersja ról ze stringa na listę dla odpowiedzi Pydantic
+    db_user.roles = db_user.roles.split("|")
+
+    return db_user
+
+
+@app.get("/user_details")
+def user_details(current_user: UserModel = Depends(get_current_user_from_token)):
+    """
+    Zwraca dane użytkownika z payloadu JWT tokena (username, roles, exp, itd.).
+    """
+    # current_user.jwt_payload przechowuje cały dekodowany payload
+    return current_user.jwt_payload
+
+
+# ####################################################################
+# 6. UWIERZYTELNIANIE
+# ####################################################################
+
+@app.post("/login", response_model=schemas.Token)
+def login(data: schemas.LoginData, db: Session = Depends(get_db)):
+    """
+    Uwierzytelnia użytkownika po loginie i haśle, zwraca token JWT.
+    """
+    # 1. Pobranie użytkownika z bazy
+    user = db.query(UserModel).filter(UserModel.username == data.username).first()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # 2. Weryfikacja hasła
+    if not verify_password(data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # 3. Przygotowanie danych do payloadu
+    # Rozdzielenie ról (string) na listę
+    user_roles = user.roles.split("|")
+
+    token_data = {
+        "username": user.username,
+        # Dodanie ról do tokena (zgodnie z punktem 6)
+        "roles": user_roles
+    }
+
+    # 4. Generowanie tokena
+    access_token = create_access_token(data=token_data)
+
+    return {"access_token": access_token, "token_type": "bearer"}
