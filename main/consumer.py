@@ -14,7 +14,6 @@ def process_tasks():
         task_to_process = None
 
         # KROK 1: Odczyt i "Zarezerwowanie" zadania (zmiana na in progress)
-        # Musimy to zrobić atomowo-podobnie, czytając i zapisując plik tymczasowy
         if os.path.exists(QUEUE_FILE):
             temp_file = NamedTemporaryFile(mode='w', delete=False, newline='')
 
@@ -25,9 +24,8 @@ def process_tasks():
                 writer.writeheader()
 
                 for row in reader:
-                    # Znajdź pierwsze zadanie pending, które nie jest jeszcze procesowane
                     if row['status'] == 'pending' and task_to_process is None:
-                        row['status'] = 'in progress'  # Zmiana statusu na in progress
+                        row['status'] = 'in progress'
                         task_to_process = row
 
                     writer.writerow(row)
@@ -50,14 +48,12 @@ def process_tasks():
 
                 for row in reader:
                     if row['id'] == task_to_process['id']:
-                        row['status'] = 'done'  # Zmiana statusu na done
+                        row['status'] = 'done'
                         print(f"Zadanie {row['id']} zakończone.")
                     writer.writerow(row)
 
             shutil.move(temp_file.name, QUEUE_FILE)
 
-            # Po wykonaniu zadania, sprawdzamy od razu czy są następne,
-            # czy czekamy? Instrukcja mówi "stale uruchomiony", więc pętla leci dalej.
         else:
             print("Brak zadań. Oczekiwanie...")
             time.sleep(CHECK_INTERVAL)  # Czekamy 5s przed kolejnym sprawdzeniem
