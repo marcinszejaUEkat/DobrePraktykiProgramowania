@@ -1,0 +1,7 @@
+/main/frozen_inference_graph.pb
+/.idea/misc.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/main/ssd_mobilenet_v2_coco.tar.gz
+/main/ssd_mobilenet_v2_coco_2018_03_29.pbtxt
+/.idea/vcs.xml
+/.idea/workspace.xml
