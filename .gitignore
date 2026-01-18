@@ -1,0 +1,3 @@
+/main/frozen_inference_graph.pb
+/main/ssd_mobilenet_v2_coco.tar.gz
+/main/ssd_mobilenet_v2_coco_2018_03_29.pbtxt
