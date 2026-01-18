@@ -29,11 +29,11 @@ def test_fibonacci_negative_raises():
 
 
 @pytest.mark.parametrize("text,expected", [
-    ("Python", 2),  # Zmienione 1 na 2, bo są dwie samogłoski
+    ("Python", 2),
     ("AEIOUY", 6),
     ("bcd", 0),
     ("", 0),
-    ("Próba żółwia", 5),  # UWAGA: tutaj 5 (ó pojawia się dwukrotnie)
+    ("Próba żółwia", 5),
 ])
 def test_count_vowels_examples(text, expected):
     assert count_vowels(text) == expected
@@ -80,7 +80,6 @@ def test_flatten_list_type_error():
     ("Hello, hello!", {"hello": 2}),
     ("", {}),
     ("Python Python python", {"python": 3}),
-    # Sprawdzenie ignorowania interpunkcji i wielkości liter (polskie znaki też obsługiwane)
     ("Ala ma kota, a kot ma Ale.", {"ala": 1, "ma": 2, "kota": 1, "a": 1, "kot": 1, "ale": 1}),
 ])
 def test_word_frequencies_examples(text, expected):
@@ -97,7 +96,7 @@ def test_word_frequencies_type_error():
     (4, False),
     (0, False),
     (1, False),
-    (5, True),   # 5 jest liczbą pierwszą — poprawiłem zgodnie z definicją
+    (5, True),
     (97, True),
 ])
 def test_is_prime_examples(n, expected):
