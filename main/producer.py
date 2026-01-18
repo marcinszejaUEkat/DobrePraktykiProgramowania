@@ -1,32 +1,52 @@
-import csv
+import sqlite3
 import uuid
-import os
 import sys
+import os
 
-QUEUE_FILE = 'tasks.csv'
+# 1. DEFINICJA ŚCIEŻKI (To musi być na górze)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, 'queue.db')
+
+
+def init_db():
+    # 2. UŻYCIE ZMIENNEJ DB_NAME (A nie 'queue.db')
+    conn = sqlite3.connect(DB_NAME)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    cursor = conn.cursor()
+    cursor.execute('''
+                   CREATE TABLE IF NOT EXISTS tasks
+                   (
+                       id
+                       TEXT
+                       PRIMARY
+                       KEY,
+                       status
+                       TEXT
+                       NOT
+                       NULL
+                   )
+                   ''')
+    conn.commit()
+    conn.close()
 
 
 def add_task():
-    # Sprawdzamy, czy plik istnieje, aby dodać nagłówki
-    file_exists = os.path.isfile(QUEUE_FILE)
-
     task_id = str(uuid.uuid4())
     status = 'pending'
 
-    with open(QUEUE_FILE, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        # Jeśli plik jest nowy, dodajemy nagłówki
-        if not file_exists:
-            writer.writerow(['id', 'status'])
+    # 3. UŻYCIE ZMIENNEJ DB_NAME TUTAJ TEŻ
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
 
-        # Zapisujemy zadanie (status pending)
-        writer.writerow([task_id, status])
-        print(f"Dodano zadanie: {task_id} ze statusem {status}")
+    cursor.execute("INSERT INTO tasks (id, status) VALUES (?, ?)", (task_id, status))
+    conn.commit()
+    conn.close()
+
+    print(f"Dodano zadanie: {task_id} ze statusem {status}")
 
 
 if __name__ == "__main__":
-    # Opcjonalnie: pętla do dodania 100 zadań na raz,
-    # jeśli uruchomimy z argumentem 'batch', w przeciwnym razie dodaje 1.
+    init_db()
     if len(sys.argv) > 1 and sys.argv[1] == 'batch':
         for _ in range(100):
             add_task()
