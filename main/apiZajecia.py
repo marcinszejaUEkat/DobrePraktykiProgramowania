@@ -18,7 +18,7 @@ def send_to_rabbitmq(url: str):
     connection = pika.BlockingConnection(params)
     channel = connection.channel()
 
-    # Deklaracja kolejki (durable=True oznacza, że kolejka przetrwa restart RabbitMQ)
+    # Deklaracja kolejki
     channel.queue_declare(queue='image_analysis_queue', durable=True)
 
     message = json.dumps({"url": url})
@@ -28,7 +28,7 @@ def send_to_rabbitmq(url: str):
         routing_key='image_analysis_queue',
         body=message,
         properties=pika.BasicProperties(
-            delivery_mode=2,  # Wiadomość trwała (nie zginie przy restarcie Rabbita)
+            delivery_mode=2,
         )
     )
     connection.close()
@@ -49,5 +49,3 @@ def analyze_image_endpoint(request: ImageRequest):
         "url": request.url,
         "status": "queued"
     }
-
-# --- Pozostałe Twoje endpointy (filmy itd.) mogą tu zostać ---
