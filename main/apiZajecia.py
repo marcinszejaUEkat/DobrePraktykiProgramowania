@@ -49,8 +49,7 @@ def tag_to_dict(t: TagModel) -> Dict:
 async def root():
     return {"hello": "world"}
 
-# --- ZAAWANSOWANE ENDPOINTY: READ (LIST) ---
-# Używamy teraz modelu Pydantic w adnotacji typu zwracanego
+# ENDPOINT: READ (LIST)
 @app.get("/movies", response_model=List[schemas.Movie])
 def get_all_movies(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     """
@@ -59,9 +58,7 @@ def get_all_movies(db: Session = Depends(get_db), current_user: UserModel = Depe
     return db.query(MovieModel).all()
 
 
-# ####################################################################
 # 1. ZASÓB: MOVIES
-# ####################################################################
 
 # a. POST - TWORZENIE
 @app.post("/movies", response_model=schemas.Movie, status_code=201)
@@ -121,9 +118,7 @@ def links(db: Session = Depends(get_db), current_user: UserModel = Depends(get_c
     return [link_to_dict(l) for l in links]
 
 
-# ####################################################################
 # 2. ZASÓB: LINKS
-# ####################################################################
 
 # a. POST - TWORZENIE
 @app.post("/links", response_model=schemas.Link, status_code=201)
@@ -180,18 +175,13 @@ def delete_link(link_id: int, db: Session = Depends(get_db), current_user: UserM
     return
 
 
-# ####################################################################
 # 3. ZASÓB: RATINGS
-# ####################################################################
 
 # a. POST - TWORZENIE
 @app.post("/ratings", response_model=schemas.Rating, status_code=201)
 def create_rating(rating_data: schemas.RatingCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user_from_token)):
     if not db.query(MovieModel).filter(MovieModel.movieId == rating_data.movieId).first():
         raise HTTPException(status_code=400, detail="Invalid movieId: Movie does not exist.")
-
-    # UWAGA: W realnej aplikacji należałoby sprawdzić, czy rating już istnieje (userId, movieId)
-    # W tym przykładzie zakładamy, że można dodać wiele ocen.
 
     db_rating = RatingModel(**rating_data.model_dump())
     db.add(db_rating)
@@ -245,9 +235,7 @@ def ratings(db: Session = Depends(get_db), current_user: UserModel = Depends(get
     return [rating_to_dict(r) for r in ratings]
 
 
-# ####################################################################
 # 4. ZASÓB: TAGS
-# ####################################################################
 
 # a. POST - TWORZENIE
 @app.post("/tags", response_model=schemas.Tag, status_code=201)
@@ -307,30 +295,22 @@ def tags(db: Session = Depends(get_db), current_user: UserModel = Depends(get_cu
     return [tag_to_dict(t) for t in tags]
 
 
-# ####################################################################
 # 5. ZASÓB: USERS (REJESTRACJA I ZARZĄDZANIE)
-# ####################################################################
 
-# Zabezpieczenie dla admina (wymagane w punkcie 6)
 @app.post("/users", response_model=schemas.User, status_code=201,
           dependencies=[Depends(role_required(["ROLE_ADMIN"]))])
 def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     """
     Dodaje nowego użytkownika do bazy danych (wymaga ROLE_ADMIN).
     """
-    # 1. Sprawdzenie, czy użytkownik już istnieje
     existing_user = db.query(UserModel).filter(UserModel.username == user_data.username).first()
     if existing_user:
         raise HTTPException(status_code=409, detail="User already exists")
 
-    # 2. Haszowanie hasła
     hashed_pw = hash_password(user_data.password)
 
-    # 3. Zapis ról
-    # Łączymy listę ról w jeden string, aby zapisać w kolumnie String w DB
     roles_str = "|".join(user_data.roles)
 
-    # 4. Tworzenie obiektu UserModel
     db_user = UserModel(
         username=user_data.username,
         hashed_password=hashed_pw,
@@ -341,7 +321,6 @@ def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
 
-    # 5. Konwersja ról ze stringa na listę dla odpowiedzi Pydantic
     db_user.roles = db_user.roles.split("|")
 
     return db_user
@@ -352,40 +331,31 @@ def user_details(current_user: UserModel = Depends(get_current_user_from_token))
     """
     Zwraca dane użytkownika z payloadu JWT tokena (username, roles, exp, itd.).
     """
-    # current_user.jwt_payload przechowuje cały dekodowany payload
     return current_user.jwt_payload
 
 
-# ####################################################################
 # 6. UWIERZYTELNIANIE
-# ####################################################################
 
 @app.post("/login", response_model=schemas.Token)
 def login(data: schemas.LoginData, db: Session = Depends(get_db)):
     """
     Uwierzytelnia użytkownika po loginie i haśle, zwraca token JWT.
     """
-    # 1. Pobranie użytkownika z bazy
     user = db.query(UserModel).filter(UserModel.username == data.username).first()
 
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # 2. Weryfikacja hasła
     if not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # 3. Przygotowanie danych do payloadu
-    # Rozdzielenie ról (string) na listę
     user_roles = user.roles.split("|")
 
     token_data = {
         "username": user.username,
-        # Dodanie ról do tokena (zgodnie z punktem 6)
         "roles": user_roles
     }
 
-    # 4. Generowanie tokena
     access_token = create_access_token(data=token_data)
 
     return {"access_token": access_token, "token_type": "bearer"}

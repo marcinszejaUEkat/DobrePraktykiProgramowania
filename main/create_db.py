@@ -1,6 +1,6 @@
 """
 Użycie:
-1) Ustaw zmienną środowiskową DATABASE_URL (przykłady poniżej).
+1) Ustaw zmienną środowiskową DATABASE_URL.
 2) Uruchom: python create_db.py
 To stworzy tabele zdefiniowane w models.Base na wskazanej bazie.
 """

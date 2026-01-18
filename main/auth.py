@@ -9,9 +9,9 @@ from main.database import get_db
 from main.models import User as UserModel
 
 # Stałe Konfiguracji
-SECRET_KEY = "super_secret_key_from_env"  # W praktyce: pobierane ze zmiennych środowiskowych!
+SECRET_KEY = "super_secret_key_from_env"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Token wygasa po 60 minutach
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -20,9 +20,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 def hash_password(password: str) -> str:
     """Haszuje hasło używając bcrypt."""
-    # bcrypt operuje na bajtach, więc kodujemy hasło do bajtów
     pwd_bytes = password.encode('utf-8')
-    # gensalt generuje sól, która jest przechowywana w zahaszowanym haśle
     hashed_bytes = bcrypt.hashpw(pwd_bytes, bcrypt.gensalt())
     return hashed_bytes.decode('utf-8')
 
@@ -34,7 +32,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         hashed_bytes = hashed_password.encode('utf-8')
         return bcrypt.checkpw(plain_bytes, hashed_bytes)
     except Exception:
-        # Obsługa błędu, jeśli hash jest nieprawidłowy/uszkodzony
         return False
 
 
@@ -48,10 +45,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    # Dodanie standardowych claims
     to_encode.update({"exp": expire, "iat": datetime.utcnow(), "sub": to_encode["username"]})
 
-    # PyJWT.encode zwraca string w nowych wersjach (nie bajty), więc jest ok.
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -78,7 +73,7 @@ def get_current_user_from_token(token: str = Depends(oauth2_scheme), db: Session
         user.jwt_payload = payload
         return user
 
-    except jwt.PyJWTError:  # <--- ZMIANA TUTAJ (z jwt.JWTError na jwt.PyJWTError)
+    except jwt.PyJWTError:
         raise credentials_exception
 
 
@@ -89,13 +84,10 @@ def role_required(required_roles: List[str]):
 
     def role_checker(current_user: UserModel = Depends(get_current_user_from_token)):
 
-        # Sprawdzamy, czy któraś z wymaganych ról jest obecna w payloadzie
         for required_role in required_roles:
-            # Weryfikujemy, czy required_role jest w liście ról tokena (payload_roles)
             if required_role in current_user.payload_roles:
-                return current_user  # Autoryzacja udana
+                return current_user
 
-        # Jeśli nie ma wymaganej roli, odrzucamy żądanie
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User does not have required permissions"

@@ -14,7 +14,6 @@ def create_tables():
 
 def clear_tables(session):
     """Usuń istniejące dane (zapobiega duplikatom przy wielokrotnym uruchomieniu)."""
-    # usuwaj w kolejności zależności (najpierw zależne, potem główne)
     session.execute(delete(Link))
     session.execute(delete(Rating))
     session.execute(delete(Tag))
@@ -45,7 +44,6 @@ def load_movies(session) -> int:
             items.append(m)
 
     if items:
-        # bulk save objects is fast; Movie.movieId is PK so no duplicates because we cleared table
         session.bulk_save_objects(items)
         session.commit()
     print(f"Loaded movies: {len(items)}")
@@ -57,7 +55,6 @@ def load_links(session) -> int:
         print("links.csv not found, skipping links load.")
         return 0
 
-    # get set of valid movieIds in DB to skip invalid references
     existing_movie_ids = {r[0] for r in session.query(Movie.movieId).all()}
 
     items: List[Link] = []

@@ -4,13 +4,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool  # Używamy StaticPool dla połączeń in-memory
+from sqlalchemy.pool import StaticPool
 
-# -----------------------------------------------------------
-# KROK 1: Naprawienie ścieżek importu
-# -----------------------------------------------------------
-
-# Dodaj główny katalog projektu do ścieżki systemowej
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
@@ -20,9 +15,7 @@ from main.apiZajecia import app
 from main.models import Movie as MovieModel, Link as LinkModel, Rating as RatingModel, Tag as TagModel, User as UserModel
 from main.auth import create_access_token, hash_password
 
-# -----------------------------------------------------------
-# KROK 2: Konfiguracja Testowej Bazy Danych
-# -----------------------------------------------------------
+# Konfiguracja Testowej Bazy Danych
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -37,11 +30,6 @@ TestingSessionLocal = sessionmaker(
     bind=test_engine, autoflush=False, autocommit=False, future=True
 )
 
-
-# -----------------------------------------------------------
-# KROK 3: Fixtura Bazy Danych (Scope="session")
-# -----------------------------------------------------------
-
 @pytest.fixture(scope="session")
 def db_engine():
     """Tworzy strukturę tabel raz na sesję."""
@@ -49,11 +37,6 @@ def db_engine():
     Base.metadata.create_all(bind=test_engine)
     yield test_engine
     Base.metadata.drop_all(bind=test_engine)
-
-
-# -----------------------------------------------------------
-# KROK 4: Nadpisanie Zależności (get_db)
-# -----------------------------------------------------------
 
 def override_get_db():
     db = TestingSessionLocal()
@@ -66,19 +49,11 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
-# -----------------------------------------------------------
-# KROK 5: Fixtura Klienta HTTP
-# -----------------------------------------------------------
-
 @pytest.fixture(scope="session")
 def client(db_engine):
     with TestClient(app) as c:
         yield c
 
-
-# -----------------------------------------------------------
-# KROK 6: Fixtura Sesji z CZYSZCZENIEM (Kluczowa zmiana)
-# -----------------------------------------------------------
 
 @pytest.fixture(scope="function")
 def db_session(db_engine):
@@ -87,15 +62,12 @@ def db_session(db_engine):
     transaction = connection.begin()
     db = TestingSessionLocal(bind=connection)
 
-    # --- KLUCZOWA ZMIANA: JAWNE CZYSZCZENIE WSZYSTKICH TABEL ---
-    # Dzięki temu każdy test startuje z pustą bazą, nawet jeśli poprzedni zrobił commit()
     db.query(TagModel).delete()
     db.query(RatingModel).delete()
     db.query(LinkModel).delete()
     db.query(MovieModel).delete()
     db.query(UserModel).delete()  # <--- Usuwamy też użytkowników!
     db.commit()
-    # -----------------------------------------------------------
 
     yield db
 
@@ -104,14 +76,9 @@ def db_session(db_engine):
     connection.close()
 
 
-# -----------------------------------------------------------
-# KROK 7: Fixtury Danych i Tokenów
-# -----------------------------------------------------------
-
 @pytest.fixture(scope="function")
 def init_data(db_session):
     """Ładuje dane filmów (bez czyszczenia, bo robi to db_session)."""
-    # (Usunęliśmy stąd delete(), bo jest już w db_session)
 
     movie1 = MovieModel(movieId=1, title="Test Movie 1", genres="Action|Comedy")
     movie2 = MovieModel(movieId=2, title="Test Movie 2", genres="Drama")
@@ -141,7 +108,6 @@ def init_data(db_session):
 @pytest.fixture(scope="function")
 def admin_token(db_session):
     """Tworzy admina i zwraca token."""
-    # Tworzymy admina (baza jest czysta dzięki db_session)
     admin_data = UserModel(
         username="admin_test",
         hashed_password=hash_password("admin123"),

@@ -3,11 +3,8 @@ from typing import Dict
 from httpx import Client
 
 
-# Testy wymagają fixtury client i init_data z conftest.py
 
-# ####################################################################
 # 1. TESTY ZASOBU: MOVIES
-# ####################################################################
 
 def test_get_all_movies(client: Client, db_session, init_data: Dict, admin_token):
     """a. Weryfikacja czy endpoint GET (lista) zwraca poprawną liczbę i dane."""
@@ -17,7 +14,7 @@ def test_get_all_movies(client: Client, db_session, init_data: Dict, admin_token
     assert response.status_code == 200
 
     data = response.json()
-    # Asercja 2: Poprawna liczba elementów (2 z init_data)
+    # Asercja 2: Poprawna liczba elementów
     assert len(data) == 2
 
     # Asercja 3: Weryfikacja struktury danych
@@ -113,9 +110,7 @@ def test_delete_movie(client: Client, db_session, init_data: Dict, admin_token):
     assert db_link is None
 
 
-# ####################################################################
 # 2. TESTY ZASOBU: LINKS
-# ####################################################################
 
 def test_post_link(client: Client, db_session, init_data: Dict, admin_token):
     """Test POST: Tworzenie nowego Link i weryfikacja istnienia."""
@@ -190,9 +185,7 @@ def test_delete_link(client: Client, db_session, init_data: Dict, admin_token):
     assert db_link is None
 
 
-# ####################################################################
 # 3. TESTY ZASOBU: RATINGS
-# ####################################################################
 
 def test_post_rating(client: Client, db_session, init_data: Dict, admin_token):
     """Test POST: Tworzenie nowego Rating."""
@@ -225,7 +218,7 @@ def test_put_rating(client: Client, db_session, init_data: Dict, admin_token):
     update_data = {
         "userId": 10,
         "movieId": init_data["movie_id"],
-        "rating": 5.0,  # Zmieniamy z 4.5 na 5.0
+        "rating": 5.0,
         "timestamp": 1000
     }
     response = client.put(f"/ratings/{rating_id}", json=update_data, headers=admin_token)
@@ -248,9 +241,7 @@ def test_delete_rating(client: Client, db_session, init_data: Dict, admin_token)
     assert db_rating is None
 
 
-# ####################################################################
 # 4. TESTY ZASOBU: TAGS
-# ####################################################################
 
 def test_post_tag(client: Client, db_session, init_data: Dict, admin_token):
     """Test POST: Tworzenie nowego Tag."""
@@ -283,7 +274,7 @@ def test_put_tag(client: Client, db_session, init_data: Dict, admin_token):
     update_data = {
         "userId": 10,
         "movieId": init_data["movie_id"],
-        "tag": "happy",  # Zmieniamy z "sad" na "happy"
+        "tag": "happy",
         "timestamp": 1000
     }
     response = client.put(f"/tags/{tag_id}", json=update_data, headers=admin_token)

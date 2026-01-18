@@ -2,11 +2,9 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 
-# Base Schemas (używane do walidacji danych wejściowych POST/PUT)
 
 class MovieBase(BaseModel):
     title: str
-    # Wymagany format: "Adventure|Animation|..."
     genres: Optional[str] = None
 
 
@@ -17,7 +15,7 @@ class LinkBase(BaseModel):
 
 class RatingBase(BaseModel):
     userId: int
-    rating: float = Field(..., ge=0.0, le=5.0)  # Ogranicz rating do zakresu 0.0 - 5.0
+    rating: float = Field(..., ge=0.0, le=5.0)
     timestamp: Optional[int] = None
 
 
@@ -27,12 +25,8 @@ class TagBase(BaseModel):
     timestamp: Optional[int] = None
 
 
-# Create Schemas (dla operacji POST - dziedziczą z Base)
 
 class MovieCreate(MovieBase):
-    # W POST, jeśli movieId jest kluczem głównym, który chcesz ustawić
-    # (a nie jest autoinkrementowany), musi być wymagany.
-    # W Twoim przypadku movieId jest importowane z CSV i jest kluczem PK
     movieId: int
     pass
 
@@ -49,15 +43,9 @@ class TagCreate(TagBase):
     movieId: int
 
 
-# --- Response Schemas (dla operacji GET - dziedziczą z Base i dodają PK) ---
-
-# Usuwamy zewnętrzną klasę Config!
-# Zamiast niej, użyjemy model_config jako słownika wewnątrz każdej klasy
-
 class Movie(MovieBase):
     movieId: int
 
-    # TUTAJ JEST POPRAWKA: Definiujemy model_config jako słownik.
     model_config = {
         'from_attributes': True
     }
@@ -90,14 +78,13 @@ class Tag(TagBase):
     }
 
 
-# Wymiana schematu dla odpowiedzi na listę wszystkich filmów
 class MovieList(BaseModel):
     movies: List[Movie]
 
 
 class UserBase(BaseModel):
     username: str
-    roles: List[str] = ['ROLE_USER']  # Domyślna rola
+    roles: List[str] = ['ROLE_USER']
 
 
 class UserCreate(UserBase):
@@ -112,13 +99,11 @@ class User(UserBase):
     }
 
 
-# Schemat dla danych wejściowych do /login
 class LoginData(BaseModel):
     username: str
     password: str
 
 
-# Schemat dla odpowiedzi z /login
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

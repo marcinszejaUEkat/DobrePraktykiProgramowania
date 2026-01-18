@@ -10,8 +10,6 @@ class Movie(Base):
 
     movieId = Column(Integer, primary_key=True, index=True)  # id z CSV
     title = Column(String, nullable=False)
-    # Proste przechowanie gatunków jako tekst "Adventure|Animation|..."
-    # Jeśli w przyszłości chcesz normalizować, zrobimy dodatkową tabelę many-to-many
     genres = Column(String, nullable=True)
 
     links = relationship("Link", back_populates="movie", cascade="all, delete-orphan")
@@ -66,15 +64,12 @@ class Tag(Base):
         return f"<Tag(userId={self.userId}, movieId={self.movieId}, tag={self.tag})>"
 
 
-# Nowa klasa User
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String, unique=True, nullable=False, index=True)
-    # hasło musi być przechowywane jako hash (nie jako jawny tekst!)
     hashed_password = Column(String, nullable=False)
-    # Pole na role (lista ról zapisana jako tekst, np. 'ROLE_USER|ROLE_ADMIN')
     roles = Column(String, nullable=False, default='ROLE_USER')
 
     def __repr__(self):
